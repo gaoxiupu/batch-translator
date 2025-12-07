@@ -3,6 +3,7 @@ import openai
 import google.generativeai as genai
 from zhipuai import ZhipuAI
 import time
+import httpx
 
 def translate_text(text, target_lang, model_name, api_key):
     """
@@ -25,7 +26,7 @@ def translate_text(text, target_lang, model_name, api_key):
     try:
         if model_name == "DeepSeek":
             # DeepSeek uses OpenAI compatible API
-            client = openai.OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
+            client = openai.OpenAI(api_key=api_key, base_url="https://api.deepseek.com", http_client=httpx.Client(timeout=60.0))
             response = client.chat.completions.create(
                 model="deepseek-chat",
                 messages=[
@@ -63,7 +64,7 @@ def translate_text(text, target_lang, model_name, api_key):
 
         elif model_name == "Kimi (Moonshot)":
             # Kimi uses OpenAI compatible API
-            client = openai.OpenAI(api_key=api_key, base_url="https://api.moonshot.cn/v1")
+            client = openai.OpenAI(api_key=api_key, base_url="https://api.moonshot.cn/v1", http_client=httpx.Client(timeout=60.0))
             response = client.chat.completions.create(
                 model="moonshot-v1-8k",
                 messages=[
