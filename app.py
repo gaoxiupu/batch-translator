@@ -4,6 +4,7 @@ import os
 import time
 import io
 import zipfile
+import streamlit_authenticator as stauth
 from utils.translator import translate_text
 
 # Page Configuration
@@ -13,6 +14,27 @@ st.set_page_config(
     layout="wide"
 )
 
+# --- User Configuration ---
+# In a production environment, it is best to use st.secrets or environmental variables.
+# For quick setup, we define a default user here.
+# Admin Password is: 123456
+DEFAULT_CONFIG = {
+    'credentials': {
+        'usernames': {
+            'admin': {
+                'email': 'admin@example.com',
+                'name': 'Admin User',
+                'password': '$2b$12$J6w1/0s0E2k3KcwsWWHA2OdEVsTI0ilCBG/ECGqXZKJF8C5ppZJ6.' # 123456
+            }
+        }
+    },
+    'cookie': {
+        'expiry_days': 30,
+        'key': 'some_random_signature_key',
+        'name': 'batch_translator_login'
+    }
+}
+
 # Initialize Session State
 if 'is_processing' not in st.session_state:
     st.session_state.is_processing = False
@@ -20,6 +42,35 @@ if 'processed_files' not in st.session_state:
     st.session_state.processed_files = [] # List of tuples: (filename, dataframe)
 
 def main():
+    
+    # --- Authentication ---
+    authenticator = stauth.Authenticate(
+        DEFAULT_CONFIG['credentials'],
+        DEFAULT_CONFIG['cookie']['name'],
+        DEFAULT_CONFIG['cookie']['key'],
+        DEFAULT_CONFIG['cookie']['expiry_days']
+    )
+
+    try:
+        authenticator.login('main')
+    except Exception as e:
+        st.error(e)
+
+    if st.session_state["authentication_status"]:
+        # Show Main App
+        with st.sidebar:
+            st.write(f"Welcome *{st.session_state['name']}*")
+            authenticator.logout('Logout', 'main')
+            st.divider()
+        
+        show_translator_app()
+        
+    elif st.session_state["authentication_status"] is False:
+        st.error('Username/password is incorrect')
+    elif st.session_state["authentication_status"] is None:
+        st.warning('Please enter your username and password')
+
+def show_translator_app():
     st.title("🌐 Batch-LLM-Translator")
     
     # --- Sidebar Configuration ---
@@ -43,10 +94,8 @@ def main():
             placeholder="e.g., English, Japanese, French"
         )
         
-        # Removed Output Path for Vercel/Web deployment
-        
         st.divider()
-        st.info("ℹ️ v1.1 by Factory Droid (Web Version)")
+        st.info("ℹ️ v1.2 by Factory Droid (Secured)")
 
     # --- Main Area ---
     
