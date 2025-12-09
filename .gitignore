@@ -18,3 +18,4 @@ venv/
 # Project
 output/
 *.zip
+.api_keys.json
