@@ -59,10 +59,21 @@ def show_translator_app():
             st.session_state.api_key_input = api_key
             cookie_manager.set("api_key_v1", api_key, key="set_api_key")
         
-        target_lang = st.text_input(
+        # Supported Languages List
+        LANGUAGES = [
+            "Simplified Chinese", "Traditional Chinese", "English", "Japanese", "Korean",
+            "French", "Spanish", "German", "Italian", "Portuguese", "Russian",
+            "Arabic", "Hindi", "Vietnamese", "Thai", "Indonesian", "Dutch",
+            "Turkish", "Polish", "Swedish", "Malay", "Filipino", "Finnish",
+            "Danish", "Norwegian", "Hungarian", "Czech", "Romanian", "Ukrainian",
+            "Greek", "Hebrew"
+        ]
+        
+        target_lang = st.selectbox(
             "3. 目标语言 (Target Language)",
-            value="Simplified Chinese",
-            placeholder="e.g., English, Japanese, French"
+            options=LANGUAGES,
+            index=0, # Defaults to Simplified Chinese
+            help="Select the target language. You can type to search."
         )
         
         st.divider()
