@@ -4,6 +4,7 @@ import os
 import time
 import io
 import zipfile
+import extra_streamlit_components as stx
 from utils.translator import translate_text
 
 # Page Configuration
@@ -25,20 +26,38 @@ def main():
 def show_translator_app():
     st.title("🌐 Batch-LLM-Translator")
     
+    # Initialize Cookie Manager
+    cookie_manager = stx.CookieManager()
+    
     # --- Sidebar Configuration ---
     with st.sidebar:
         st.header("⚙️ 设置 (Settings)")
         
+        # New model options
         model_option = st.selectbox(
             "1. 选择模型 (Model)",
-            ("DeepSeek", "Gemini", "GLM (智谱)", "Kimi (Moonshot)")
+            ("gemini-2.5-flash", "deepseek v3.2", "glm-4.6", "kimi-k2")
         )
         
+        # Retrieve API Key from cookie if available
+        cookie_api_key = cookie_manager.get(cookie="api_key_v1")
+        
+        # Initialize session state for API Key if not present
+        if 'api_key_input' not in st.session_state:
+            st.session_state.api_key_input = cookie_api_key if cookie_api_key else ""
+
         api_key = st.text_input(
             "2. API Key",
+            value=st.session_state.api_key_input,
             type="password",
-            help="输入对应模型的 API Key。Key 仅保存在内存中，刷新页面后失效。"
+            help="输入对应模型的 API Key。系统会自动保存到浏览器 Cookies 中。",
+            key="api_key_widget"
         )
+        
+        # Save API Key to cookie when changed
+        if api_key != st.session_state.api_key_input:
+            st.session_state.api_key_input = api_key
+            cookie_manager.set("api_key_v1", api_key, key="set_api_key")
         
         target_lang = st.text_input(
             "3. 目标语言 (Target Language)",
@@ -47,7 +66,7 @@ def show_translator_app():
         )
         
         st.divider()
-        st.info("ℹ️ v1.2 by Factory Droid")
+        st.info("ℹ️ v1.3 by Factory Droid")
 
     # --- Main Area ---
     

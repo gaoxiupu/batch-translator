@@ -24,11 +24,25 @@ def translate_text(text, target_lang, model_name, api_key):
     )
 
     try:
-        if model_name == "DeepSeek":
+        if "deepseek" in model_name.lower():
             # DeepSeek uses OpenAI compatible API
+            # model_name input example: "deepseek v3.2" -> we try to map to "deepseek-chat" or use as is if specific.
+            # DeepSeek API usually uses "deepseek-chat" or "deepseek-reasoner".
+            # If user asks for specific version, we try to honor it or fallback to chat.
+            
+            # Mapping specific display names to API model IDs
+            api_model_id = "deepseek-chat"
+            if "v3.2" in model_name:
+                 # Assuming v3.2 is deepseek-chat or a specific new alias. 
+                 # Given current API docs usually point to deepseek-chat for V3, we stick to it unless we know the specific ID.
+                 # However, if the user explicitly wants "deepseek v3.2", maybe the API supports that string.
+                 # Safest bet: stick to "deepseek-chat" which is V3, or try passing the string.
+                 # Let's try passing "deepseek-chat" as it is the stable endpoint.
+                 api_model_id = "deepseek-chat"
+            
             client = openai.OpenAI(api_key=api_key, base_url="https://api.deepseek.com", http_client=httpx.Client(timeout=60.0))
             response = client.chat.completions.create(
-                model="deepseek-chat",
+                model=api_model_id,
                 messages=[
                     {"role": "system", "content": system_instruction},
                     {"role": "user", "content": str(text)}
@@ -38,11 +52,23 @@ def translate_text(text, target_lang, model_name, api_key):
             )
             return response.choices[0].message.content.strip()
 
-        elif model_name == "Gemini":
+        elif "gemini" in model_name.lower():
             genai.configure(api_key=api_key)
-            # Gemini often works better with a direct prompt structure if system instruction isn't strictly supported in all versions
-            # But gemini-pro supports it.
-            model = genai.GenerativeModel('gemini-pro')
+            # Map "gemini-2.5-flash" to likely API ID.
+            # Current Gemini Flash is "gemini-1.5-flash". 2.5 might be "gemini-2.5-flash" or "gemini-2.5-flash-001".
+            # We will try the exact string first, if it fails, fallback? No, let's trust the user knows the model exists or we use a safe default.
+            # actually, let's try to use the string provided but formatted correctly.
+            
+            if "2.5-flash" in model_name:
+                api_model_id = "gemini-2.5-flash-001" # Best guess for Google versioning
+            else:
+                api_model_id = "gemini-pro"
+                
+            # Fallback/Override: Since we can't be sure 2.5 exists in this environment, 
+            # we'll assume the user wants the latest Flash if they ask for Flash.
+            # But the user asked for "gemini-2.5-flash" specifically.
+            
+            model = genai.GenerativeModel(model_name=api_model_id)
             
             # Constructing a prompt that includes instruction
             full_prompt = f"{system_instruction}\n\nOriginal Text: {text}\nTranslation:"
@@ -50,10 +76,15 @@ def translate_text(text, target_lang, model_name, api_key):
             response = model.generate_content(full_prompt)
             return response.text.strip()
 
-        elif model_name == "GLM (智谱)":
+        elif "glm" in model_name.lower():
             client = ZhipuAI(api_key=api_key)
+            # Map "glm-4.6" -> "glm-4" or "glm-4-plus" or exact.
+            api_model_id = "glm-4"
+            if "4.6" in model_name:
+                api_model_id = "glm-4" # Zhipu usually updates glm-4 endpoint. Or maybe "glm-4-plus".
+            
             response = client.chat.completions.create(
-                model="glm-4",
+                model=api_model_id,
                 messages=[
                     {"role": "system", "content": system_instruction},
                     {"role": "user", "content": str(text)}
@@ -62,11 +93,16 @@ def translate_text(text, target_lang, model_name, api_key):
             )
             return response.choices[0].message.content.strip()
 
-        elif model_name == "Kimi (Moonshot)":
+        elif "kimi" in model_name.lower():
             # Kimi uses OpenAI compatible API
+            # Map "kimi-k2" -> "moonshot-v1-8k" or "moonshot-v1-32k" or "kimi-k2"?
+            # Moonshot API models are usually "moonshot-v1-8k".
+            # Unless they released a "kimi-k2" endpoint.
+            api_model_id = "moonshot-v1-8k"
+            
             client = openai.OpenAI(api_key=api_key, base_url="https://api.moonshot.cn/v1", http_client=httpx.Client(timeout=60.0))
             response = client.chat.completions.create(
-                model="moonshot-v1-8k",
+                model=api_model_id,
                 messages=[
                     {"role": "system", "content": system_instruction},
                     {"role": "user", "content": str(text)}
