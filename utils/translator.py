@@ -60,7 +60,7 @@ def translate_text(text, target_lang, model_name, api_key):
             # actually, let's try to use the string provided but formatted correctly.
             
             if "2.5-flash" in model_name:
-                api_model_id = "gemini-2.5-flash-001" # Best guess for Google versioning
+                api_model_id = "gemini-2.5-flash" # Corrected based on user feedback
             else:
                 api_model_id = "gemini-pro"
                 
