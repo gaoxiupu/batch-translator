@@ -7,20 +7,22 @@ import httpx
 
 def translate_text(text, target_lang, model_name, api_key):
     """
-    Translates a single string of text into the target language using the specified model.
+    Translates text into the target language using the specified model.
+    Handles both single strings and newline-separated batches.
     """
     if not text or str(text).strip() == "":
         return ""
 
     # Common System Prompt
-    # Note: Some models support system prompt better than others.
-    # We want strict translation, no yapping.
+    # Updated for batch/bulk translation capability
     system_instruction = (
-        f"You are a professional translator. Translate the following text into {target_lang}. "
+        f"You are a professional translator. Translate the following content into {target_lang}. "
         "Rules:\n"
         "1. Maintain original formatting, casing, symbols, and HTML tags.\n"
-        "2. Return ONLY the translated text. No explanations, no quotes around the output unless in source.\n"
-        "3. If the text is a placeholder or code that shouldn't be translated, return it as is."
+        "2. The input may be a list of sentences/phrases separated by newlines. PRESERVE the exact number of lines.\n"
+        "3. Return ONLY the translated text. No explanations, no quotes around the output unless in source.\n"
+        "4. If a line is a placeholder/code, keep it as is.\n"
+        "5. Do NOT merge lines. One input line = One output line."
     )
 
     try:

@@ -171,22 +171,59 @@ def process_files(files, model, key, lang):
                 
                 total_rows = len(df)
                 
-                # Iterate and translate
-                for row_idx, row in df.iterrows():
-                    source_text = row[source_col]
+                # BATCH PROCESSING LOGIC
+                # We process in chunks to balance Rate Limits vs Context Window.
+                # A safe chunk size is 50 lines. 
+                # This reduces API calls by 50x (e.g. 1000 lines -> 20 calls), satisfying "avoid too many requests".
+                BATCH_SIZE = 50 
+                
+                for start_idx in range(0, total_rows, BATCH_SIZE):
+                    end_idx = min(start_idx + BATCH_SIZE, total_rows)
+                    batch_df = df.iloc[start_idx:end_idx]
+                    
+                    # Prepare batch text
+                    # We use a special separator or just newlines.
+                    # Warning: If source text contains newlines, this might be tricky.
+                    # But assuming standard CSV content (titles, short descriptions).
+                    batch_texts = batch_df[source_col].astype(str).tolist()
+                    
+                    # Remove internal newlines in cells to avoid confusion? 
+                    # Or we just hope the LLM is smart enough.
+                    # Safer: Replace internal newlines with a placeholder if needed, but for now simple join.
+                    batch_input = "\n".join([t.replace('\n', ' ') for t in batch_texts])
+                    
+                    st.write(f"Processing batch {start_idx}-{end_idx} ({len(batch_texts)} lines)...")
                     
                     # Call API
-                    translation = translate_text(source_text, lang, model, key)
+                    translation_block = translate_text(batch_input, lang, model, key)
+                    
+                    # Process Output
+                    if translation_block.startswith("[Error"):
+                        # If error, fill batch with error message
+                        translated_lines = [translation_block] * len(batch_texts)
+                    else:
+                        translated_lines = translation_block.strip().split('\n')
+                        
+                        # Handle mismatch: 
+                        # If LLM returns fewer lines, we might have lost data.
+                        # If more lines, maybe it added extra.
+                        if len(translated_lines) != len(batch_texts):
+                            st.warning(f"Batch mismatch: Input {len(batch_texts)} lines, Output {len(translated_lines)} lines. Attempting to align.")
+                            # Pad or truncate
+                            if len(translated_lines) < len(batch_texts):
+                                translated_lines += [""] * (len(batch_texts) - len(translated_lines))
+                            else:
+                                translated_lines = translated_lines[:len(batch_texts)]
                     
                     # Update DataFrame
-                    df.at[row_idx, new_col_name] = translation
+                    df.iloc[start_idx:end_idx, df.columns.get_loc(new_col_name)] = translated_lines
                     
                     # Update status
-                    if row_idx % 5 == 0 or row_idx == total_rows - 1:
-                        status_text.text(f"正在处理: {file_name} ({row_idx+1}/{total_rows})")
+                    status_text.text(f"正在处理: {file_name} ({end_idx}/{total_rows})")
+                    progress_bar.progress((idx + (end_idx / total_rows)) / total_files)
                     
                     # Rate limiting protection
-                    time.sleep(0.2) 
+                    time.sleep(1.0) # slightly longer sleep for batch
                 
                 # Store in session state instead of saving to disk
                 base_name = os.path.splitext(file_name)[0]
