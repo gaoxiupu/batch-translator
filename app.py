@@ -62,11 +62,13 @@ def show_translator_app():
         # Supported Languages List
         LANGUAGES = [
             "Simplified Chinese", "Traditional Chinese", "English", "Japanese", "Korean",
-            "French", "Spanish", "German", "Italian", "Portuguese", "Russian",
-            "Arabic", "Hindi", "Vietnamese", "Thai", "Indonesian", "Dutch",
-            "Turkish", "Polish", "Swedish", "Malay", "Filipino", "Finnish",
-            "Danish", "Norwegian", "Hungarian", "Czech", "Romanian", "Ukrainian",
-            "Greek", "Hebrew"
+            "Vietnamese", "Thai", "Indonesian", "Malay", "Filipino", "Khmer", "Lao", "Burmese",
+            "French", "German", "Spanish", "Italian", "Portuguese", "Russian",
+            "Ukrainian", "Polish", "Dutch", "Turkish", "Greek", "Hebrew", "Arabic", "Hindi",
+            "Albanian", "Armenian", "Austrian German", "Basque", "Belarusian", "Bosnian", "Bulgarian",
+            "Catalan", "Croatian", "Czech", "Danish", "Estonian", "Finnish", "Galician", "Georgian",
+            "Hungarian", "Icelandic", "Irish", "Latvian", "Lithuanian", "Luxembourgish", "Macedonian",
+            "Maltese", "Norwegian", "Romanian", "Serbian", "Slovak", "Slovenian", "Swedish", "Welsh"
         ]
         
         target_lang = st.selectbox(
