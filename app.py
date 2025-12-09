@@ -21,12 +21,12 @@ st.set_page_config(
 def load_api_keys():
     """Loads API keys from the JSON file."""
     if not os.path.exists(API_KEYS_FILE):
-        return {{}}
+        return {}
     try:
         with open(API_KEYS_FILE, 'r') as f:
             return json.load(f)
     except (json.JSONDecodeError, FileNotFoundError):
-        return {{}}
+        return {}
 
 def save_api_key(model_name, key):
     """Saves a single API key for a specific model."""
@@ -46,6 +46,13 @@ if 'api_keys' not in st.session_state:
 def main():
     show_translator_app()
 
+# --- Callback for model change ---
+def on_model_change():
+    """Update the API key input when the model selection changes."""
+    selected_model = st.session_state.model_selector
+    key_for_model = st.session_state.api_keys.get(selected_model, "")
+    st.session_state.api_key_input = key_for_model
+
 def show_translator_app():
     st.title("🌐 Batch-LLM-Translator")
 
@@ -56,27 +63,28 @@ def show_translator_app():
         model_option = st.selectbox(
             "1. 选择模型 (Model)",
             ("gemini-2.5-flash", "deepseek v3.2", "glm-4.6", "kimi-k2"),
-            key="model_selector"
+            key="model_selector",
+            on_change=on_model_change
         )
 
-        # Get the current API key for the selected model
-        current_api_key = st.session_state.api_keys.get(model_option, "")
+        # Initialize the api_key_input state if it doesn't exist
+        if "api_key_input" not in st.session_state:
+            st.session_state.api_key_input = st.session_state.api_keys.get(model_option, "")
 
         api_key_input = st.text_input(
             "2. API Key",
-            value=current_api_key,
-            type="password", # Changed to password for security
+            type="password",
             help="输入对应模型的 API Key。系统会自动为您保存。",
-            key=f"api_key_input_{{model_option}}", # Dynamic key to force re-render
+            key="api_key_input", # Static key
             autocomplete="new-password"
         )
 
-        # If the entered key is different, update session state and save it
-        if api_key_input and api_key_input != current_api_key:
+        # Save the key if it has been changed by the user
+        current_model_key_in_storage = st.session_state.api_keys.get(model_option, "")
+        if api_key_input and api_key_input != current_model_key_in_storage:
             st.session_state.api_keys[model_option] = api_key_input
             save_api_key(model_option, api_key_input)
-            # Small visual feedback
-            st.toast(f"✅ {{model_option}} API Key 已保存。")
+            st.toast(f"✅ {model_option} API Key 已保存。")
 
 
         # Supported Languages List
@@ -162,7 +170,7 @@ def show_translator_app():
         for fname, df_res in st.session_state.processed_files:
             csv_data = df_res.to_csv(index=False).encode('utf-8')
             st.download_button(
-                label=f"📄 下载 {{fname}}",
+                label=f"📄 下载 {fname}",
                 data=csv_data,
                 file_name=fname,
                 mime="text/csv"
@@ -179,12 +187,12 @@ def process_files(files, model, key, lang):
     total_files = len(files)
 
     with console:
-        st.write(f"[INFO] 开始处理 {{total_files}} 个文件...")
+        st.write(f"[INFO] 开始处理 {total_files} 个文件...")
 
         for idx, file in enumerate(files):
             file_name = file.name
-            st.write(f"--- [FILE {{idx+1}}/{{total_files}}] {{file_name}} ---")
-            status_text.text(f"正在处理: {{file_name}}...")
+            st.write(f"--- [FILE {idx+1}/{total_files}] {file_name} ---")
+            status_text.text(f"正在处理: {file_name}...")
 
             try:
                 # Reset file pointer
@@ -194,12 +202,12 @@ def process_files(files, model, key, lang):
                 df = pd.read_csv(file)
 
                 if df.empty:
-                    st.warning(f"⚠️ 文件 {{file_name}} 为空，跳过。")
+                    st.warning(f"⚠️ 文件 {file_name} 为空，跳过。")
                     continue
 
                 # Identify source column
                 source_col = df.columns[0]
-                new_col_name = f"Translated_{{lang}}"
+                new_col_name = f"Translated_{lang}"
 
                 # Initialize new column
                 df[new_col_name] = ""
@@ -216,7 +224,7 @@ def process_files(files, model, key, lang):
                     batch_texts = batch_df[source_col].astype(str).tolist()
                     batch_input = "\n".join([t.replace('\n', ' ') for t in batch_texts])
 
-                    st.write(f"Processing batch {{start_idx}}-{{end_idx}} ({{len(batch_texts)}} lines)...")
+                    st.write(f"Processing batch {start_idx}-{end_idx} ({len(batch_texts)} lines)...")
 
                     # Call API
                     translation_block = translate_text(batch_input, lang, model, key)
@@ -228,7 +236,7 @@ def process_files(files, model, key, lang):
                         translated_lines = translation_block.strip().split('\n')
 
                         if len(translated_lines) != len(batch_texts):
-                            st.warning(f"Batch mismatch: Input {{len(batch_texts)}} lines, Output {{len(translated_lines)}} lines. Attempting to align.")
+                            st.warning(f"Batch mismatch: Input {len(batch_texts)} lines, Output {len(translated_lines)} lines. Attempting to align.")
                             if len(translated_lines) < len(batch_texts):
                                 translated_lines += [""] * (len(batch_texts) - len(translated_lines))
                             else:
@@ -238,7 +246,7 @@ def process_files(files, model, key, lang):
                     df.iloc[start_idx:end_idx, df.columns.get_loc(new_col_name)] = translated_lines
 
                     # Update status
-                    status_text.text(f"正在处理: {{file_name}} ({{end_idx}}/{{total_rows}})")
+                    status_text.text(f"正在处理: {file_name} ({end_idx}/{total_rows})")
                     progress_bar.progress((idx + (end_idx / total_rows)) / total_files)
 
                     # Rate limiting protection
@@ -247,14 +255,14 @@ def process_files(files, model, key, lang):
                 # Store in session state
                 base_name = os.path.splitext(file_name)[0]
                 safe_lang = lang.replace(" ", "_")
-                new_filename = f"{base_name}_{{safe_lang}}.csv"
+                new_filename = f"{base_name}_{safe_lang}.csv"
 
                 st.session_state.processed_files.append((new_filename, df))
 
-                st.success(f"✅ 完成处理: {{file_name}}")
+                st.success(f"✅ 完成处理: {file_name}")
 
             except Exception as e:
-                st.error(f"❌ 处理文件 {{file_name}} 时出错: {{str(e)}}")
+                st.error(f"❌ 处理文件 {file_name} 时出错: {str(e)}")
 
             # Update main progress bar
             progress_bar.progress((idx + 1) / total_files)
